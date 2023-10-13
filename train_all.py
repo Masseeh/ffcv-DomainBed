@@ -181,8 +181,8 @@ def main():
     environments = [dataset.environments[test_env[0]] for test_env in args.test_envs]
     table = PrettyTable(["Selection"] + environments + ["Avg."])
     for key, row in results.items():
-        row.append(np.mean(row))
-        row = [f"{acc:.3%}" for acc in row]
+        row.append(np.mean([r[0] for r in row]))
+        row = [f"{acc[0]:.3%} (step={acc[1]})" if isinstance(acc, list) else f"{acc[0]:.3%}" for acc in row]
         table.add_row([key] + row)
     logger.nofmt(table)
 

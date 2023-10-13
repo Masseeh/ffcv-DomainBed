@@ -279,8 +279,13 @@ def train(test_envs, args, hparams, n_steps, checkpoint_freq, logger, writer, ta
     logger.info("---")
     records = Q(records)
     oracle_best = records.argmax("test_out")["test_in"]
+    oracle_best_step = records.argmax("test_out")["step"]
+
     iid_best = records.argmax("train_out")["test_in"]
+    iid_best_step = records.argmax("train_out")["step"]
+
     last = records[-1]["test_in"]
+    last_step = records[-1]["step"]
 
     if hparams.indomain_test:
         # if test set exist, use test set for indomain results
@@ -292,11 +297,11 @@ def train(test_envs, args, hparams, n_steps, checkpoint_freq, logger, writer, ta
     last_indomain = records[-1][in_key]
 
     ret = {
-        "oracle": oracle_best,
-        "iid": iid_best,
-        "last": last,
-        "last (inD)": last_indomain,
-        "iid (inD)": iid_best_indomain,
+        "oracle": [oracle_best, oracle_best_step],
+        "iid": [iid_best, iid_best_step],
+        "last": [last, last_step],
+        "last (inD)": [last_indomain, last_step],
+        "iid (inD)": [iid_best_indomain, iid_best_step],
     }
 
     # Evaluate SWAD
@@ -320,6 +325,6 @@ def train(test_envs, args, hparams, n_steps, checkpoint_freq, logger, writer, ta
         ret["SWAD (inD)"] = results[in_key]
 
     for k, acc in ret.items():
-        logger.info(f"{k} = {acc:.3%}")
+        logger.info(f"{k} = {acc[0]:.3%} (step={acc[1]})")
 
     return ret, records
