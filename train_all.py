@@ -68,6 +68,8 @@ def main():
     if not hparams["ffcv"]:
         assert hparams["use_amp"] == False, "AMP is not supported in non-ffcv mode"
 
+    torch.cuda.set_device(hparams["device"])
+
     # setup debug
     if args.debug:
         args.checkpoint_freq = 5
