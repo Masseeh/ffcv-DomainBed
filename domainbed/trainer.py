@@ -33,8 +33,6 @@ def train(test_envs, args, hparams, n_steps, checkpoint_freq, logger, writer, ta
     # setup dataset & loader
     #######################################################
 
-    device = misc.torch_device(hparams["device"])
-
     args.real_test_envs = test_envs  # for log
     algorithm_class = algorithms.get_algorithm_class(args.algorithm)
     dataset, in_splits, out_splits = get_dataset(test_envs, args, hparams, algorithm_class)
@@ -146,7 +144,7 @@ def train(test_envs, args, hparams, n_steps, checkpoint_freq, logger, writer, ta
         hparams,
     )
 
-    algorithm.to(device)
+    algorithm.to(algorithm.dev)
 
     n_params = sum([p.numel() for p in algorithm.parameters()])
     logger.info("# of params = %d" % n_params)
@@ -171,7 +169,7 @@ def train(test_envs, args, hparams, n_steps, checkpoint_freq, logger, writer, ta
     if hparams["swad"]:
         swad_algorithm = swa_utils.AveragedModel(algorithm)
         swad_cls = getattr(swad_module, hparams["swad"])
-        swad = swad_cls(evaluator, **hparams.swad_kwargs)
+        swad = swad_cls(evaluator, device=misc.torch_device(hparams["device"]), **hparams.swad_kwargs)
 
     last_results_keys = None
     records = []
@@ -183,7 +181,7 @@ def train(test_envs, args, hparams, n_steps, checkpoint_freq, logger, writer, ta
         batches = misc.merge_list(batches_list)
         # to device
         batches = {
-            key: [tensor.to(device) for tensor in tensorlist] for key, tensorlist in batches.items()
+            key: [tensor.to(algorithm.dev) for tensor in tensorlist] for key, tensorlist in batches.items()
         }
 
         inputs = {**batches, "step": step}
@@ -250,7 +248,7 @@ def train(test_envs, args, hparams, n_steps, checkpoint_freq, logger, writer, ta
                     "test_envs": test_envs,
                     "model_dict": algorithm.cpu().state_dict(),
                 }
-                algorithm.cuda()
+                algorithm.to(algorithm.dev)
                 if not args.debug:
                     torch.save(save_dict, path)
                 else:

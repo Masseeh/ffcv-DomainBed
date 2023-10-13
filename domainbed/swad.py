@@ -50,7 +50,7 @@ class LossValley(SWADBase):
     LossValley choose SWAD range by detecting loss valley.
     """
 
-    def __init__(self, evaluator, n_converge, n_tolerance, tolerance_ratio, **kwargs):
+    def __init__(self, evaluator, device, n_converge, n_tolerance, tolerance_ratio, **kwargs):
         """
         Args:
             evaluator
@@ -62,6 +62,7 @@ class LossValley(SWADBase):
         self.n_converge = n_converge
         self.n_tolerance = n_tolerance
         self.tolerance_ratio = tolerance_ratio
+        self.dev = device
 
         self.converge_Q = deque(maxlen=n_converge)
         self.smooth_Q = deque(maxlen=n_tolerance)
@@ -148,7 +149,7 @@ class LossValley(SWADBase):
             self.evaluator.logger.error(
                 "Requested final model, but model is not yet converged; return last model instead"
             )
-            return self.converge_Q[-1].cuda()
+            return self.converge_Q[-1].to(self.dev)
 
         if not self.dead_valley:
             self.smooth_Q.popleft()
@@ -159,4 +160,4 @@ class LossValley(SWADBase):
                 segment_swa = self.smooth_Q.popleft()
                 self.final_model.update_parameters(segment_swa, step=segment_swa.end_step)
 
-        return self.final_model.cuda()
+        return self.final_model.to(self.dev)

@@ -4,11 +4,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 from domainbed.lib.fast_data_loader import FastDataLoader
 
-if torch.cuda.is_available():
-    device = "cuda"
-else:
-    device = "cpu"
-
 
 def accuracy_from_loader(algorithm, loader, weights, debug=False):
     correct = 0
@@ -19,8 +14,8 @@ def accuracy_from_loader(algorithm, loader, weights, debug=False):
     algorithm.eval()
 
     for i, (x, y) in enumerate(loader):
-        x = x.to(device)
-        y = y.to(device)
+        x = x.to(algorithm.dev)
+        y = y.to(algorithm.dev)
 
         with torch.no_grad():
             logits = algorithm.predict(x)
@@ -34,7 +29,7 @@ def accuracy_from_loader(algorithm, loader, weights, debug=False):
         else:
             batch_weights = weights[weights_offset : weights_offset + len(x)]
             weights_offset += len(x)
-        batch_weights = batch_weights.to(device)
+        batch_weights = batch_weights.to(algorithm.dev)
         if logits.size(1) == 1:
             correct += (logits.gt(0).eq(y).float() * batch_weights).sum().item()
         else:

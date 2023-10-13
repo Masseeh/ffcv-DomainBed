@@ -65,6 +65,9 @@ def main():
     hparams = Config(*keys, default=hparams)
     hparams.argv_update(left_argv)
 
+    if not hparams["ffcv"]:
+        assert hparams["use_amp"] == False, "AMP is not supported in non-ffcv mode"
+
     # setup debug
     if args.debug:
         args.checkpoint_freq = 5

@@ -47,6 +47,7 @@ class Algorithm(torch.nn.Module):
         self.num_classes = num_classes
         self.num_domains = num_domains
         self.hparams = hparams
+        self.dev = torch.device(f"cuda:{self.hparams['device']}")
 
     def update(self, x, y, **kwargs):
         """
@@ -391,7 +392,7 @@ class IRM(ERM):
 
     @staticmethod
     def _irm_penalty(logits, y):
-        scale = torch.tensor(1.0).cuda().requires_grad_()
+        scale = torch.tensor(1.0).to(logits.device).requires_grad_()
         loss_1 = F.cross_entropy(logits[::2] * scale, y[::2])
         loss_2 = F.cross_entropy(logits[1::2] * scale, y[1::2])
         grad_1 = autograd.grad(loss_1, [scale], create_graph=True)[0]
@@ -577,7 +578,7 @@ class CutMix(ERM):
             # generate mixed sample
             beta = self.hparams["beta"]
             lam = np.random.beta(beta, beta)
-            rand_index = torch.randperm(x.size()[0]).cuda()
+            rand_index = torch.randperm(x.size()[0]).to(self.dev)
             target_a = y
             target_b = y[rand_index]
             bbx1, bby1, bbx2, bby2 = self.rand_bbox(x.size(), lam)
@@ -964,7 +965,7 @@ class SagNet(Algorithm):
 
     def randomize(self, x, what="style", eps=1e-5):
         sizes = x.size()
-        alpha = torch.rand(sizes[0], 1).cuda()
+        alpha = torch.rand(sizes[0], 1).to(self.dev)
 
         if len(sizes) == 4:
             x = x.view(sizes[0], sizes[1], -1)
@@ -1046,7 +1047,7 @@ class RSC(ERM):
         percentiles = np.percentile(all_g.cpu(), self.drop_f, axis=1)
         percentiles = torch.Tensor(percentiles)
         percentiles = percentiles.unsqueeze(1).repeat(1, all_g.size(1))
-        mask_f = all_g.lt(percentiles.cuda()).float()
+        mask_f = all_g.lt(percentiles.to(self.dev)).float()
 
         # Equation (3): mute top-gradient-percentile activations
         all_f_muted = all_f * mask_f
