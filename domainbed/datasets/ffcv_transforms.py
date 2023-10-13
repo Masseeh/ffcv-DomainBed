@@ -3,6 +3,7 @@ from dataclasses import replace
 from ffcv.pipeline.allocation_query import AllocationQuery
 from ffcv.pipeline.operation import Operation
 from ffcv.pipeline.compiler import Compiler
+from ffcv.transforms.utils import fast_crop
 import numbers
 import numba as nb
 
@@ -160,3 +161,23 @@ class RandomGrayscale(Operation):
 
     def declare_state_and_memory(self, previous_state):
         return (replace(previous_state, jit_mode=True), AllocationQuery(previous_state.shape, previous_state.dtype))
+
+class ResizedCrop(Operation):
+    def __init__(self, size, ratio=1.0):
+        super().__init__()
+        self.ratio = ratio
+        self.size = size
+
+    def generate_code(self):
+        ratio = self.ratio
+        def resized_crop(im, dst):
+
+            i, j, h, w = fast_crop.get_center_crop(im.shape[0], im.shape[1], ratio)
+            fast_crop.resize_crop(im, i, i + h, j, j + w, dst)
+            return dst
+
+        return resized_crop
+
+    def declare_state_and_memory(self, previous_state):
+        assert previous_state.jit_mode
+        return replace(previous_state, shape=(self.size, self.size, 3)), AllocationQuery((self.size, self.size, 3), dtype=np.dtype('uint8'))
