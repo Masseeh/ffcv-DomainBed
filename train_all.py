@@ -178,7 +178,8 @@ def main():
     logger.info("Algorithm: %s" % args.algorithm)
     logger.info("Dataset: %s" % args.dataset)
 
-    table = PrettyTable(["Selection"] + dataset.environments + ["Avg."])
+    environments = [dataset.environments[test_env[0]] for test_env in args.test_envs]
+    table = PrettyTable(["Selection"] + environments + ["Avg."])
     for key, row in results.items():
         row.append(np.mean(row))
         row = [f"{acc:.3%}" for acc in row]
