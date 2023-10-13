@@ -66,12 +66,12 @@ class ResNet(torch.nn.Module):
         super(ResNet, self).__init__()
         if hparams["resnet18"]:
             if network is None:
-                network = torchvision.models.resnet18(pretrained=hparams["pretrained"])
+                network = torchvision.models.resnet18(weights=torchvision.models.ResNet18_Weights.IMAGENET1K_V1 if hparams["pretrained"] else None)
             self.network = network
             self.n_outputs = 512
         else:
             if network is None:
-                network = torchvision.models.resnet50(pretrained=hparams["pretrained"])
+                network = torchvision.models.resnet50(weights=torchvision.models.ResNet50_Weights.IMAGENET1K_V1 if hparams["pretrained"] else None)
             self.network = network
             self.n_outputs = 2048
 

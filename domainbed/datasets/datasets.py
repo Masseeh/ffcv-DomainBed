@@ -185,6 +185,10 @@ class RotatedMNIST(MultipleEnvironmentMNIST):
 
         return TensorDataset(x, y)
 
+class FFCVImageFolder(ImageFolder):
+    def __init__(self, root, beton_path):
+        super().__init__(root)
+        self.beton = beton_path
 
 class MultipleEnvironmentImageFolder(MultipleDomainDataset):
     def __init__(self, root):
@@ -196,7 +200,7 @@ class MultipleEnvironmentImageFolder(MultipleDomainDataset):
         self.datasets = []
         for environment in environments:
             path = os.path.join(root, environment)
-            env_dataset = ImageFolder(path)
+            env_dataset = FFCVImageFolder(path, beton_path=os.path.join(path, f"{environment}.beton"))
 
             self.datasets.append(env_dataset)
 

@@ -8,6 +8,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.autograd as autograd
 import numpy as np
+from torch.cuda.amp import autocast, GradScaler
 
 #  import higher
 
@@ -93,20 +94,28 @@ class ERM(Algorithm):
             lr=self.hparams["lr"],
             weight_decay=self.hparams["weight_decay"],
         )
+        self.scaler = GradScaler(enabled=self.hparams["use_amp"])
 
     def update(self, x, y, **kwargs):
-        all_x = torch.cat(x)
-        all_y = torch.cat(y)
-        loss = F.cross_entropy(self.predict(all_x), all_y)
 
-        self.optimizer.zero_grad()
-        loss.backward()
-        self.optimizer.step()
+        self.optimizer.zero_grad(set_to_none=True)
+        
+        with autocast(enabled=self.hparams["use_amp"]):
+
+            all_x = torch.cat(x)
+            all_y = torch.cat(y)
+            loss = F.cross_entropy(self.network(all_x), all_y)
+
+
+        self.scaler.scale(loss).backward()
+        self.scaler.step(self.optimizer)
+        self.scaler.update()
 
         return {"loss": loss.item()}
 
     def predict(self, x):
-        return self.network(x)
+        with autocast(enabled=self.hparams["use_amp"]):
+            return self.network(x)
 
 
 class Mixstyle(Algorithm):

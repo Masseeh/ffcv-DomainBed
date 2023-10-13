@@ -8,19 +8,16 @@ import numpy as np
 import torch
 import torch.utils.data
 
+from ffcv.loader import Loader, OrderOption
+
 from domainbed.datasets import get_dataset, split_dataset
 from domainbed import algorithms
 from domainbed.evaluator import Evaluator
 from domainbed.lib import misc
 from domainbed.lib import swa_utils
 from domainbed.lib.query import Q
-from domainbed.lib.fast_data_loader import InfiniteDataLoader, FastDataLoader
+from domainbed.lib.fast_data_loader import SmartZip, InfiniteDataLoader
 from domainbed import swad as swad_module
-
-if torch.cuda.is_available():
-    device = "cuda"
-else:
-    device = "cpu"
 
 
 def json_handler(v):
@@ -35,6 +32,9 @@ def train(test_envs, args, hparams, n_steps, checkpoint_freq, logger, writer, ta
     #######################################################
     # setup dataset & loader
     #######################################################
+
+    device = misc.torch_device(hparams["device"])
+
     args.real_test_envs = test_envs  # for log
     algorithm_class = algorithms.get_algorithm_class(args.algorithm)
     dataset, in_splits, out_splits = get_dataset(test_envs, args, hparams, algorithm_class)
@@ -74,7 +74,7 @@ def train(test_envs, args, hparams, n_steps, checkpoint_freq, logger, writer, ta
     n_envs = len(dataset)
     train_envs = sorted(set(range(n_envs)) - set(test_envs))
     iterator = misc.SplitIterator(test_envs)
-    batch_sizes = np.full([n_envs], hparams["batch_size"], dtype=np.int)
+    batch_sizes = np.full([n_envs], hparams["batch_size"], dtype=int)
 
     batch_sizes[test_envs] = 0
     batch_sizes = batch_sizes.tolist()
@@ -92,24 +92,43 @@ def train(test_envs, args, hparams, n_steps, checkpoint_freq, logger, writer, ta
     logger.info(f"steps-per-epoch for each domain: {prt_steps} -> min = {steps_per_epoch:.2f}")
 
     # setup loaders
-    train_loaders = [
-        InfiniteDataLoader(
-            dataset=env,
-            weights=env_weights,
-            batch_size=batch_size,
-            num_workers=dataset.N_WORKERS,
-        )
-        for (env, env_weights), batch_size in iterator.train(zip(in_splits, batch_sizes))
-    ]
+    if hparams["ffcv"]:
+        train_loaders = [
+            Loader(
+                fname=env.beton,
+                batch_size=batch_size,
+                num_workers=1,
+                order=OrderOption.QUASI_RANDOM,
+                drop_last=True,
+                indices=env.keys,
+                seed=args.seed,
+                pipelines={'image': env.transforms["x"],
+                            'label': env.transforms["y"]})
+            for (env, env_weights), batch_size in iterator.train(zip(in_splits, batch_sizes))
+        ]
+    else:
+        train_loaders = [
+            InfiniteDataLoader(
+                dataset=env,
+                weights=env_weights,
+                batch_size=batch_size,
+                num_workers=dataset.N_WORKERS,
+            )
+            for (env, env_weights), batch_size in iterator.train(zip(in_splits, batch_sizes))
+        ]
 
     # setup eval loaders
     eval_loaders_kwargs = []
     for i, (env, _) in enumerate(in_splits + out_splits + test_splits):
         batchsize = hparams["test_batchsize"]
-        loader_kwargs = {"dataset": env, "batch_size": batchsize, "num_workers": dataset.N_WORKERS}
-        if args.prebuild_loader:
-            loader_kwargs = FastDataLoader(**loader_kwargs)
-        eval_loaders_kwargs.append(loader_kwargs)
+        if hparams["ffcv"]:
+            loader_kwargs = {"fname": env.beton, "batch_size": batchsize, "num_workers": 1, "drop_last": False,
+                            "order": OrderOption.SEQUENTIAL, "indices": env.keys, "pipelines": {'image': env.transforms["x"], 'label': env.transforms["y"]}}
+            loader_kwargs = Loader(**loader_kwargs)
+            eval_loaders_kwargs.append(loader_kwargs)
+        else:
+            loader_kwargs = {"dataset": env, "batch_size": batchsize, "num_workers": dataset.N_WORKERS}
+            eval_loaders_kwargs.append(loader_kwargs)
 
     eval_weights = [None for _, weights in (in_splits + out_splits + test_splits)]
     eval_loader_names = ["env{}_in".format(i) for i in range(len(in_splits))]
@@ -132,7 +151,7 @@ def train(test_envs, args, hparams, n_steps, checkpoint_freq, logger, writer, ta
     n_params = sum([p.numel() for p in algorithm.parameters()])
     logger.info("# of params = %d" % n_params)
 
-    train_minibatches_iterator = zip(*train_loaders)
+    train_minibatches_iterator = iter(SmartZip(*train_loaders))
     checkpoint_vals = collections.defaultdict(lambda: [])
 
     #######################################################
@@ -160,10 +179,8 @@ def train(test_envs, args, hparams, n_steps, checkpoint_freq, logger, writer, ta
 
     for step in range(n_steps):
         step_start_time = time.time()
-        # batches_dictlist: [{env0_data_key: tensor, env0_...}, env1_..., ...]
-        batches_dictlist = next(train_minibatches_iterator)
-        # batches: {data_key: [env0_tensor, ...], ...}
-        batches = misc.merge_dictlist(batches_dictlist)
+        batches_list = next(train_minibatches_iterator)
+        batches = misc.merge_list(batches_list)
         # to device
         batches = {
             key: [tensor.to(device) for tensor in tensorlist] for key, tensorlist in batches.items()

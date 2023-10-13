@@ -17,12 +17,19 @@ class TBWriter(Writer):
         for tag, scalar in tag_scalar_dic.items():
             self.writer.add_scalar(tag, scalar, global_step)
 
+class DummpyWriter(Writer):
+    def __init__(self, dir_path):
+        pass
+    def add_scalars(self, tag_scalar_dic, global_step):
+        pass
+
 
 def get_writer(dir_path):
     """
     Args:
         dir_path: tb dir
     """
-    writer = TBWriter(dir_path)
+    # writer = TBWriter(dir_path)
+    writer = DummpyWriter(dir_path)
 
     return writer

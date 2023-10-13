@@ -18,9 +18,9 @@ def accuracy_from_loader(algorithm, loader, weights, debug=False):
 
     algorithm.eval()
 
-    for i, batch in enumerate(loader):
-        x = batch["x"].to(device)
-        y = batch["y"].to(device)
+    for i, (x, y) in enumerate(loader):
+        x = x.to(device)
+        y = y.to(device)
 
         with torch.no_grad():
             logits = algorithm.predict(x)
@@ -54,10 +54,8 @@ def accuracy_from_loader(algorithm, loader, weights, debug=False):
 def accuracy(algorithm, loader_kwargs, weights, **kwargs):
     if isinstance(loader_kwargs, dict):
         loader = FastDataLoader(**loader_kwargs)
-    elif isinstance(loader_kwargs, FastDataLoader):
-        loader = loader_kwargs
     else:
-        raise ValueError(loader_kwargs)
+        loader = loader_kwargs
     return accuracy_from_loader(algorithm, loader, weights, **kwargs)
 
 

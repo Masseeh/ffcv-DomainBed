@@ -2,6 +2,33 @@
 
 import torch
 
+class SmartZip:
+    def __init__(self, *loaders):
+        self.loaders = loaders
+        self.iters = None
+
+    def __iter__(self):
+        self.iters = []
+        for loader in self.loaders:
+            self.iters.append(iter(loader))
+        return self
+
+    def _reload(self, i):
+        self.iters[i] = iter(self.loaders[i])
+    
+    def __next__(self):
+        output = []
+        
+        for it in range(len(self.iters)):
+            try:
+                out = next(self.iters[it])
+            except StopIteration:
+                self._reload(it)
+                out = next(self.iters[it])
+
+            output.append(out)
+
+        return output
 
 class _InfiniteSampler(torch.utils.data.Sampler):
     """Wraps another Sampler to yield an infinite stream."""

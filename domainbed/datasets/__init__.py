@@ -13,20 +13,25 @@ def set_transfroms(dset, data_type, hparams, algorithm_class=None):
     """
     assert hparams["data_augmentation"]
 
+    if hparams["ffcv"]:
+        aug, basic, label = DBT.ffcv_tf(misc.torch_device(hparams["device"]), hparams["use_amp"])
+    else:
+        aug, basic, label = DBT.aug, DBT.basic, lambda x: x
+
     additional_data = False
     if data_type == "train":
-        dset.transforms = {"x": DBT.aug}
+        dset.transforms = {"x": aug, "y": label}
         additional_data = True
     elif data_type == "valid":
         if hparams["val_augment"] is False:
-            dset.transforms = {"x": DBT.basic}
+            dset.transforms = {"x": basic, "y": label}
         else:
             # Originally, DomainBed use same training augmentation policy to validation.
             # We turn off the augmentation for validation as default,
             # but left the option to reproducibility.
-            dset.transforms = {"x": DBT.aug}
+            dset.transforms = {"x": aug, "y": label}
     elif data_type == "test":
-        dset.transforms = {"x": DBT.basic}
+        dset.transforms = {"x": basic, "y": label}
     elif data_type == "mnist":
         # No augmentation for mnist
         dset.transforms = {"x": lambda x: x}
@@ -69,12 +74,9 @@ def get_dataset(test_envs, args, hparams, algorithm_class=None):
 
         set_transfroms(in_, in_type, hparams, algorithm_class)
         set_transfroms(out, out_type, hparams, algorithm_class)
-
-        if hparams["class_balanced"]:
-            in_weights = misc.make_weights_for_balanced_classes(in_)
-            out_weights = misc.make_weights_for_balanced_classes(out)
-        else:
-            in_weights, out_weights = None, None
+        
+        # No support for weighted sampling for now
+        in_weights, out_weights = None, None
         in_splits.append((in_, in_weights))
         out_splits.append((out, out_weights))
 
@@ -89,6 +91,7 @@ class _SplitDataset(torch.utils.data.Dataset):
         self.underlying_dataset = underlying_dataset
         self.keys = keys
         self.transforms = {}
+        self.beton = self.underlying_dataset.beton
 
         self.direct_return = isinstance(underlying_dataset, _SplitDataset)
 
@@ -100,9 +103,10 @@ class _SplitDataset(torch.utils.data.Dataset):
         ret = {"y": y}
 
         for key, transform in self.transforms.items():
+            if key == 'y': continue
             ret[key] = transform(x)
 
-        return ret
+        return ret['x'], ret['y']
 
     def __len__(self):
         return len(self.keys)

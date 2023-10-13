@@ -15,6 +15,8 @@ import numpy as np
 import torch
 import torch.nn as nn
 
+def torch_device(device):
+    return torch.device("cuda:{}".format(device) if torch.cuda.is_available() else "cpu")
 
 def make_weights_for_balanced_classes(dataset):
     counts = Counter()
@@ -201,10 +203,9 @@ def hash_bn(module):
     return w, b, rm, rv
 
 
-def merge_dictlist(dictlist):
-    """Merge list of dicts into dict of lists, by grouping same key."""
-    ret = {k: [] for k in dictlist[0].keys()}
-    for dic in dictlist:
-        for data_key, v in dic.items():
-            ret[data_key].append(v)
+def merge_list(lst):
+    ret = {'x': [], 'y': []}
+    for ls in lst:
+        ret['x'].append(ls[0])
+        ret['y'].append(ls[1])
     return ret

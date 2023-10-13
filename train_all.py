@@ -23,7 +23,7 @@ def main():
     parser = argparse.ArgumentParser(description="Domain generalization")
     parser.add_argument("name", type=str)
     parser.add_argument("configs", nargs="*")
-    parser.add_argument("--data_dir", type=str, default="datadir/")
+    parser.add_argument("--data_dir", type=str, default="/projets/masih/dataset")
     parser.add_argument("--dataset", type=str, default="PACS")
     parser.add_argument("--algorithm", type=str, default="ERM")
     parser.add_argument(
@@ -54,7 +54,6 @@ def main():
         default="fast",
         help="[fast, all]. if fast, ignore train_in datasets in evaluation time.",
     )
-    parser.add_argument("--prebuild_loader", action="store_true", help="Pre-build eval loaders")
     args, left_argv = parser.parse_known_args()
 
     # setup hparams
@@ -62,6 +61,7 @@ def main():
 
     keys = ["config.yaml"] + args.configs
     keys = [open(key, encoding="utf8") for key in keys]
+
     hparams = Config(*keys, default=hparams)
     hparams.argv_update(left_argv)
 
@@ -142,6 +142,9 @@ def main():
 
     if not args.test_envs:
         args.test_envs = [[te] for te in range(len(dataset))]
+    elif isinstance(args.test_envs[0], int):
+        args.test_envs = [[te] for te in args.test_envs]
+    
     logger.info(f"Target test envs = {args.test_envs}")
 
     ###########################################################################
