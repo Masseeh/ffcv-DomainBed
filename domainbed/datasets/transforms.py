@@ -2,8 +2,8 @@ from torchvision import transforms as T
 
 import torch
 from domainbed.datasets.ffcv_transforms import RandomGrayscale, RandomColorJitter
-from ffcv.fields.decoders import IntDecoder, SimpleRGBImageDecoder
-from ffcv.transforms import RandomHorizontalFlip, Convert, ToDevice, ToTensor, ToTorchImage, RandomResizedCrop
+from ffcv.fields.decoders import IntDecoder, CenterCropRGBImageDecoder, RandomResizedCropRGBImageDecoder
+from ffcv.transforms import RandomHorizontalFlip, Convert, ToDevice, ToTensor, ToTorchImage
 from ffcv.transforms.common import Squeeze
 
 basic = T.Compose(
@@ -32,8 +32,7 @@ def ffcv_tf(device=torch.device('cuda'), use_amp=True):
     label_pipeline = [IntDecoder(), ToTensor(), ToDevice(device), Squeeze()]
 
     aug_image_pipeline = [
-        SimpleRGBImageDecoder(),
-        RandomResizedCrop(size=224, scale=(0.7, 1.0), ratio=(3 / 4, 4 / 3)),
+        RandomResizedCropRGBImageDecoder(output_size=(224, 224), scale=(0.7, 1.0), ratio=(3 / 4, 4 / 3)),
         RandomHorizontalFlip(),
         RandomColorJitter(1.0, 0.3, 0.3, 0.3, 0.3),
         RandomGrayscale(0.1),
@@ -45,11 +44,10 @@ def ffcv_tf(device=torch.device('cuda'), use_amp=True):
     ]
 
     basic_image_pipeline = [
-        SimpleRGBImageDecoder(),
+        CenterCropRGBImageDecoder(output_size=(224, 224), ratio=1.0),
         ToTensor(),
         ToDevice(device, non_blocking=True),
         ToTorchImage(),
-        T.Resize(size=(224, 224), antialias=True),
         Convert(torch.float16 if use_amp else torch.float32),
         T.Normalize(mean=mean, std=std), # Normalize using image statistics
     ]
