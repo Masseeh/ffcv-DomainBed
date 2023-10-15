@@ -115,8 +115,7 @@ class ERM(Algorithm):
         return {"loss": loss.item()}
 
     def predict(self, x):
-        with autocast(enabled=self.hparams["use_amp"]):
-            return self.network(x)
+        return self.network(x)
 
 
 class Mixstyle(Algorithm):

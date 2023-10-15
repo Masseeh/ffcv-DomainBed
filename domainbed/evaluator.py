@@ -2,6 +2,7 @@ import collections
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.cuda.amp import autocast
 from domainbed.lib.fast_data_loader import FastDataLoader
 
 
@@ -14,10 +15,12 @@ def accuracy_from_loader(algorithm, loader, weights, debug=False):
     algorithm.eval()
 
     for i, (x, y) in enumerate(loader):
-        x = x.to(algorithm.dev)
-        y = y.to(algorithm.dev)
 
-        with torch.no_grad():
+        if not algorithm.hparams["ffcv"]:
+            x = x.to(algorithm.dev)
+            y = y.to(algorithm.dev)
+
+        with torch.no_grad(), autocast(enabled=algorithm.hparams["use_amp"]):
             logits = algorithm.predict(x)
             loss = F.cross_entropy(logits, y).item()
 

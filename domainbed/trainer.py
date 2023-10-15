@@ -179,10 +179,12 @@ def train(test_envs, args, hparams, n_steps, checkpoint_freq, logger, writer, ta
         step_start_time = time.time()
         batches_list = next(train_minibatches_iterator)
         batches = misc.merge_list(batches_list)
-        # to device
-        batches = {
-            key: [tensor.to(algorithm.dev) for tensor in tensorlist] for key, tensorlist in batches.items()
-        }
+
+        if not hparams["ffcv"]:
+            # to device
+            batches = {
+                key: [tensor.to(algorithm.dev) for tensor in tensorlist] for key, tensorlist in batches.items()
+            }
 
         inputs = {**batches, "step": step}
         step_vals = algorithm.update(**inputs)
